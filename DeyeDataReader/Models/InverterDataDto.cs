@@ -155,5 +155,9 @@ namespace DeyeDataReader.Models
         // Settings Data
         [JsonPropertyName("Active Power Regulation (%)")]
         public double ActivePowerRegulation { get; set; }
+
+        // Load Data
+        [JsonPropertyName("Load Side Total Power (W)")]
+        public int LoadSideTotalPower { get; set; }
     }
 }

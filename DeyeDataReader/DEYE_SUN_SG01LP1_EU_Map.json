@@ -344,6 +344,19 @@
         "metric_name": "EnergySold_kwh_total",
         "label_name": "Energy",
         "label_value": "SoldTotal"
+      },
+      {
+        "titleEN": "LoadSideTotalPower",
+        "registers": ["0x00B2"],
+        "DomoticzIdx": 0,
+        "optionRanges": [],
+        "ratio": 1,
+        "unit": "W",
+        "graph": 1,
+        "metric_type": "gauge",
+        "metric_name": "LoadSideTotalPower",
+        "label_name": "Power",
+        "label_value": "LoadTotal"
       }
     ]
   },

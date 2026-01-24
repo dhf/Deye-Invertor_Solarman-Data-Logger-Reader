@@ -14,7 +14,7 @@ namespace DeyeDataReader
 
             var config = new InverterConfig
             {
-                InverterIp = "10.98.128.77",
+                InverterIp = "10.22.182.77",
                 InverterPort = 8899,
                 Verbose = false,
                 InverterSerialNumber = 3119026917,
