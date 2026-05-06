@@ -14,15 +14,13 @@ namespace DeyeDataReader
 
             var config = new InverterConfig
             {
-                InverterIp = "10.22.182.77",
+                InverterIp = "192.168.112.102",
                 InverterPort = 8899,
                 Verbose = false,
-                InverterSerialNumber = 3119026917,
-                RegisterStarts = [0x0046, 0x00C1, 0x0100],
-                RegisterEnds = [0x00C0, 0x00CC, 0x013F],
+                InverterSerialNumber = 2796729831,
             };
 
-            var solarmanService = new SolarmanDataLoggerService(config);
+            var solarmanService = new SolarmanDataLoggerService(new InverterConfig());
 
             try
             {
@@ -55,7 +53,7 @@ namespace DeyeDataReader
 
             Console.WriteLine();
             Console.WriteLine("Press any key to exit...");
-            Console.ReadLine();
+            //Console.ReadLine();
         }
     }
 }

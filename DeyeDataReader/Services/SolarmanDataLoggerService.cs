@@ -8,34 +8,29 @@ namespace DeyeDataReader.Services
 {
     public class SolarmanDataLoggerService
     {
-        private double _totalBatteryCharge = 0;
-        private double _totalBatteryDischarge = 0;
-        private double _totalEnergyBought = 0;
-        private double _totalEnergySold = 0;
-        private double _totalProduction = 0;
+        private double _totalBatteryCharge;
+        private double _totalBatteryDischarge;
+        private double _totalEnergyBought;
+        private double _totalEnergySold;
+        private double _totalProduction;
 
         private readonly InverterConfig _config;
-        private readonly List<RegisterMapping> _registerMappings;
-        private readonly string[] _signedRegisters = {
+        private readonly RegisterMapping? _registerMapping;
+        private readonly string[] _signedRegisters =
+        [
             "0x00A7", "0x00A8", "0x00A9", "0x00AA", "0x00AB",
             "0x00AD", "0x00AE", "0x00AF", "0x00A4", "0x00A5",
             "0x00BE", "0x00BF", "0x005A", "0x005B", "0x00B6", "0x013E",
             "0x00B2"
-        };
-
-        public SolarmanDataLoggerService()
-        {
-            _config = new();
-            _registerMappings = LoadRegisterMappings();
-        }
+        ];
 
         public SolarmanDataLoggerService(InverterConfig config)
         {
             _config = config;
-            _registerMappings = LoadRegisterMappings();
+            _registerMapping = LoadRegisterMappings();
         }
 
-        private List<RegisterMapping> LoadRegisterMappings()
+        private RegisterMapping? LoadRegisterMappings()
         {
             try
             {
@@ -43,22 +38,24 @@ namespace DeyeDataReader.Services
 
                 jsonPath = Path.Combine(jsonPath, _config.InverterRegistersMapFile);
 
-                if (jsonPath == null || !File.Exists(jsonPath))
+                if (!File.Exists(jsonPath))
                 {
-                    Console.WriteLine("DEYEMap.xml not found in any expected location");
-                    return new List<RegisterMapping>();
+                    Console.WriteLine($"{jsonPath} not found in the expected location");
+                    return null;
                 }
 
                 var jsonContent = File.ReadAllText(jsonPath);
-                var root = JsonSerializer.Deserialize<RegisterMappingRoot[]>(jsonContent);
-                var mappings = root?.SelectMany(r => r.Items).ToList() ?? new List<RegisterMapping>();
-                Console.WriteLine($"Loaded {mappings.Count} register mappings from {jsonPath}");
+                var mappings = JsonSerializer.Deserialize<RegisterMapping>(jsonContent);
+                if (mappings != null)
+                {
+                    Console.WriteLine($"Loaded {mappings.Mappings.Length} register mappings from {jsonPath}");
+                }
                 return mappings;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading register mappings: {ex.Message}");
-                return new List<RegisterMapping>();
+                return null;
             }
         }
 
@@ -74,10 +71,11 @@ namespace DeyeDataReader.Services
 
                 var inverterData = new InverterDataDto();
 
-                for (int i = 0; i < _config.RegisterStarts.Length; i++)
+                if (!(_registerMapping?.Registers.Length > 0)) return inverterData;
+                foreach (var register in _registerMapping.Registers)
                 {
-                    var start = _config.RegisterStarts[i];
-                    var end = _config.RegisterEnds[i];
+                    var start = Convert.ToInt32(register.Start[2..], 16);
+                    var end = Convert.ToInt32(register.End[2..], 16);
                     var data = await ReadRegisterRangeAsync(client, start, end);
                     if (data != null)
                     {
@@ -145,7 +143,7 @@ namespace DeyeDataReader.Services
             frame.AddRange(snBytes);
 
             // Data field
-            frame.AddRange(new byte[] { 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 });
+            frame.AddRange([0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
 
             // Business field (Modbus request)
             var registerCount = end - start + 1;
@@ -170,7 +168,7 @@ namespace DeyeDataReader.Services
 
             // Calculate and set checksum
             var checksum = 0;
-            for (int i = 1; i < frame.Count - 2; i++)
+            for (var i = 1; i < frame.Count - 2; i++)
             {
                 checksum += frame[i];
             }
@@ -186,7 +184,7 @@ namespace DeyeDataReader.Services
             foreach (byte b in data)
             {
                 crc ^= b;
-                for (int i = 0; i < 8; i++)
+                for (var i = 0; i < 8; i++)
                 {
                     if ((crc & 0x0001) != 0)
                     {
@@ -210,7 +208,7 @@ namespace DeyeDataReader.Services
             if (_config.Verbose)
                 Console.WriteLine($"Parsing {registerCount} registers from 0x{start:X4} to 0x{end:X4}, data length: {data.Length}");
 
-            for (int i = 0; i < registerCount; i++)
+            for (var i = 0; i < registerCount; i++)
             {
                 var registerAddress = start + i;
                 var hexAddress = $"0x{registerAddress:X4}";
@@ -247,7 +245,14 @@ namespace DeyeDataReader.Services
 
         private void ApplyRegisterMapping(string hexAddress, int value, InverterDataDto inverterData)
         {
-            var mapping = _registerMappings.FirstOrDefault(m => m.Registers.Contains(hexAddress));
+            Mapping? mapping = null;
+            if (_registerMapping?.Mappings != null)
+                foreach (var mappingItem in _registerMapping.Mappings)
+                {
+                    mapping = mappingItem.Items.FirstOrDefault(m => m.Registers.Contains(hexAddress));
+                    if (mapping != null)
+                        break;
+                }
 
             if (mapping == null)
             {
